@@ -1598,16 +1598,11 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (state.exhibit) return;
-  if (k === 'r') {
-    recordWord();
-    return;
-  }
-  if (k === 'f') {
-    setStage(!state.stage);
-    return;
-  }
-  if (k === 'c') {
-    setKeyMode(state.keyMode === 'chords' ? 'word' : 'chords');
+  // App shortcuts need Shift, so every plain letter stays a piano key.
+  if (e.shiftKey) {
+    if (k === 'r') recordWord();
+    else if (k === 'f') setStage(!state.stage);
+    else if (k === 'c') setKeyMode(state.keyMode === 'chords' ? 'word' : 'chords');
     return;
   }
   const i = KEY_MAP.indexOf(k);

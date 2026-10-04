@@ -42,7 +42,7 @@ Lock a group and **Randomize** or a new mood leaves it alone. **New melody** re-
 
 **Live chords.** Switch the keys to *Live chords* and press any note. You hear the chord that fits the song's key (D in C major gives Dm), and the bass, keys and vocal chops follow whatever you play. *Loop the drop* keeps the drop going so you can jam over it. Plug in a MIDI keyboard (Chrome or Edge) and hold a chord; it reads which chord you played.
 
-**Visuals.** A reactive stage with several scenes. It punches on kicks, sparkles on hats, puts every chop on screen at its pitch, shifts colour with the chords and goes big on the drop. You can type your word to show it as moving type. **Stage mode** (key F) goes fullscreen with the jam pads and an XY effects pad: left closes a filter, right thins it out, up throws the whole mix into the echo.
+**Visuals.** A reactive stage with several scenes. It punches on kicks, sparkles on hats, puts every chop on screen at its pitch, shifts colour with the chords and goes big on the drop. You can type your word to show it as moving type. **Stage mode** (Shift+F) goes fullscreen with the jam pads and an XY effects pad: left closes a filter, right thins it out, up throws the whole mix into the echo.
 
 **8D chops.** Turn it on and the vocal chops circle around your head (wear headphones).
 
@@ -75,11 +75,11 @@ Practical notes for a venue:
 | Key | Does |
 | --- | --- |
 | Space | play / stop |
-| R | record |
+| Shift+R | record |
 | 1–8 | slice pads |
-| A … ; | play your word, or chords in live mode |
-| C | switch between word and live chords |
-| F | stage mode |
+| A … ; | play your word, or chords in live mode (every plain letter is a note) |
+| Shift+C | switch between word and live chords |
+| Shift+F | stage mode |
 | Esc | leave stage / exhibit mode |
 
 ## How it works
