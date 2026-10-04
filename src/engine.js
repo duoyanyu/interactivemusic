@@ -533,7 +533,7 @@ export class Engine {
     this.perc = this._makePerc(kit.perc);
 
     this.instruments = [this.pad, this.keys, this.bass, this.kick, this.bassDrive, this.perc?.node].filter(Boolean);
-    this.lastHit.clear();
+    for (const key of ['kick', 'bass', 'perc']) this.lastHit.delete(key);
   }
 
   _makePerc(kind) {
@@ -598,7 +598,9 @@ export class Engine {
     this.textureGain.gain.value = dbToGain(TEXTURE_LEVELS[kind]);
   }
 
-  // Monophonic Tone instruments refuse two starts at the same instant.
+  // Monophonic Tone instruments refuse a start at or before their last one.
+  // Hits already queued a few ms ahead survive a stop/restart, so the guard
+  // is never reset for the shared drum synths; a clashing hit moves 2 ms later.
   _hitTime(key, time) {
     const last = this.lastHit.get(key) ?? -1;
     const t = time <= last ? last + 0.002 : time;
@@ -965,7 +967,6 @@ export class Engine {
     const time = this.offline ? 0 : this.ctx.now() + 0.05;
     this._startStep = fromStep;
     this._resetAutomation(time);
-    this.lastHit.clear();
     // start one tick early so events sitting exactly on the start step fire
     const tick = Math.max(0, Math.round(fromStep * this.ticksPerStep) - 1);
     this.transport.start(time, `${tick}i`);
@@ -985,7 +986,6 @@ export class Engine {
     this.riserGain.gain.cancelScheduledValues(now);
     this.riserGain.gain.setValueAtTime(0, now);
     if (this.texturePlayer?.state === 'started') this.texturePlayer.stop(now);
-    this.lastHit.clear();
   }
 
   // Current position in 16th-note steps.
