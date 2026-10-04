@@ -18,6 +18,12 @@ export const MIX_CHANNELS = { vox: 'Vox', chords: 'Chords', keys: 'Keys', bass: 
 export const SLOTS = { kick: 'Kick', snare: 'Snare', hat: 'Hat', perc: 'Perc' };
 
 const dbToGain = (db) => 10 ** (db / 20);
+const KNEE = 0.8;
+function softClip(x) {
+  const a = Math.abs(x);
+  if (a <= KNEE) return x;
+  return Math.sign(x) * (KNEE + (0.98 - KNEE) * Math.tanh((a - KNEE) / (0.98 - KNEE)));
+}
 const faderGain = (v) => (v <= 0 ? 0 : dbToGain((v - 75) * 0.24));
 
 // Plays the recorded word at any pitch. Each note is its own one-shot
@@ -201,8 +207,13 @@ export class Engine {
 
     // --- master -----------------------------------------------------------
     // Web Audio compressors add their own makeup gain, so the "limiter"
-    // still overshoots a little; the trim after it keeps peaks under 0 dB.
-    this.trim = new Tone.Gain(dbToGain(-2)).toDestination();
+    // overshoots on hard transients. A soft clipper at the very end catches
+    // what gets through: transparent below -2 dBFS, never above -0.2 dBFS.
+    // (The shaper only sees -1..1, so feed it half the signal and let the
+    // curve map that back.)
+    // no oversampling: its filters ring past the ceiling
+    this.clipper = new Tone.WaveShaper((u) => softClip(u * 2), 8192).toDestination();
+    this.trim = new Tone.Gain(dbToGain(-2) * 0.5).connect(this.clipper);
     this.limiter = new Tone.Limiter(-1).connect(this.trim);
     this.glue = new Tone.Compressor({ threshold: -14, ratio: 2.5, attack: 0.02, release: 0.25 }).connect(this.limiter);
     // performance filters (the XY pad) sit on the whole mix
@@ -217,7 +228,7 @@ export class Engine {
     if (!offline) {
       this.analyser = new Tone.Waveform(512);
       this.fft = new Tone.FFT({ size: 256, smoothing: 0.75 });
-      this.trim.fan(this.analyser, this.fft);
+      this.clipper.fan(this.analyser, this.fft);
     }
 
     // --- shared FX returns ------------------------------------------------
@@ -388,7 +399,7 @@ export class Engine {
     this._setParam(this.reverbReturn.gain, (f.reverb / 100) * 1.1);
     this._setParam(this.delayReturn.gain, (f.delay / 100) * 0.9);
     this._setParam(this.delay.feedback, (f.feedback / 100) * 0.82);
-    this._setParam(this.master.gain, f.volume <= 0 ? 0 : dbToGain((f.volume - 80) * 0.25));
+    this._setParam(this.master.gain, f.volume <= 0 ? 0 : dbToGain((f.volume - 80) * 0.25 - 3));
     const decay = this._decayFor(f.size);
     if (Math.abs(decay - Number(this.reverb.decay)) > 0.05) {
       // regenerating the impulse response is async; don't do it per pixel
