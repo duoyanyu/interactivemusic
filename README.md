@@ -61,6 +61,15 @@ Practical notes for a venue:
 - A directional or handheld mic beats a laptop mic in a noisy room. The trimmer keeps only the loudest part, so background chatter mostly gets cut.
 - MIDI keyboards and controllers work too, for a "play the chords" station next to the screen.
 
+## On phones
+
+- A control bar sits at the bottom of the screen: record, play/stop, new song and stage, plus where you are in the song.
+- The keyboard shows one octave that fits the screen; − and + move it up and down.
+- Sound plays on iPhone even with the silent switch on, and comes back after a call or switching apps.
+- The screen stays awake while a song plays.
+- Phones get slightly lighter synths so playback doesn't stutter.
+- **Add to Home Screen** installs it as an app that opens full screen. After the first visit it also works offline (the app files and a copy of Tone.js are cached).
+
 ## Keyboard shortcuts
 
 | Key | Does |

@@ -109,8 +109,32 @@ body {
   font-size: 15px;
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
-  padding-inline: 16px;
+  padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px));
   padding-block: 20px 32px;
+}
+
+/* taps go straight through: no double-tap zoom, no grey flash */
+button,
+label,
+select,
+input,
+.key,
+.jam-pad,
+.xy {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.key,
+.jam-pad,
+.pad,
+.rec,
+.xy,
+.exhibit-rec,
+.exhibit-mood {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 [hidden] {
@@ -316,6 +340,10 @@ body {
   height: 100%;
 }
 
+/* Every canvas gets a fixed CSS height (or sits in a box with one). If its
+   height were left to the content, the pixel buffer (CSS size x device
+   pixel ratio) would become its size, and it would grow on every redraw. */
+
 .scope canvas {
   height: 52px;
 }
@@ -396,13 +424,13 @@ body {
 }
 
 .lcd-sample {
-  min-height: 112px;
   display: grid;
-  grid-template-rows: minmax(70px, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-content: start;
 }
 
 .lcd-sample canvas {
-  min-height: 70px;
+  height: 110px;
 }
 
 .lcd-stats {
@@ -1078,6 +1106,10 @@ select {
 
 .stage canvas,
 .exhibit-stage canvas {
+  /* absolutely placed so its size never comes from its own pixel buffer
+     (Safari won't resolve height: 100% inside an aspect-ratio box) */
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
   height: 100%;
@@ -1644,6 +1676,183 @@ html.is-exhibit {
   flex: 0 1 auto;
 }
 
+
+/* --- phones and touch screens ------------------------------------------------ */
+
+.dock {
+  display: none;
+}
+
+.octave {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.octave button {
+  appearance: none;
+  width: 34px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--edge);
+  background: var(--raised);
+  color: var(--ink);
+  font: 800 16px/1 var(--font-ui);
+  cursor: pointer;
+}
+
+.octave output {
+  min-width: 2.6em;
+  text-align: center;
+  font-family: var(--font-lcd);
+  font-size: 18px;
+  color: var(--accent);
+}
+
+@media (pointer: coarse) {
+  /* thumbs, not cursors: 40px+ targets, 16px text so iOS doesn't zoom */
+  .chip-btn {
+    min-height: 40px;
+    padding: 10px 14px;
+  }
+  .btn-small,
+  .btn-quiet {
+    min-height: 40px;
+  }
+  select,
+  input[type='text'] {
+    font-size: 16px;
+    min-height: 40px;
+  }
+  .toggle,
+  .lock {
+    min-height: 40px;
+  }
+  .toggle input {
+    width: 44px;
+    height: 26px;
+  }
+  .toggle input::after {
+    width: 20px;
+    height: 20px;
+  }
+  .toggle input:checked::after {
+    transform: translateX(18px);
+  }
+  .lock input {
+    width: 38px;
+    height: 22px;
+  }
+  .lock input::after {
+    width: 16px;
+    height: 16px;
+  }
+  .lock input:checked::after {
+    transform: translateX(16px);
+  }
+  .mute {
+    width: 40px;
+    height: 36px;
+  }
+  .fader-mix {
+    grid-template-columns: 84px minmax(0, 1fr) 40px;
+  }
+  .slot-play {
+    width: 40px;
+    height: 40px;
+  }
+  .jam-pad {
+    min-height: 52px;
+  }
+  .octave button {
+    width: 44px;
+    height: 40px;
+  }
+  input[type='range'] {
+    height: 40px;
+  }
+}
+
+@media (max-width: 700px) {
+  body {
+    padding-block-end: calc(96px + env(safe-area-inset-bottom, 0px));
+  }
+  /* the controls you need while scrolling, always under your thumb */
+  .dock {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: 8px;
+    padding: 10px max(12px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px))
+      max(12px, env(safe-area-inset-left, 0px));
+    background: color-mix(in srgb, var(--deck) 92%, transparent);
+    border-top: 1px solid var(--edge);
+    backdrop-filter: blur(10px);
+  }
+  .dock .btn {
+    min-height: 48px;
+    justify-content: center;
+  }
+  .dock-rec {
+    width: 48px;
+    padding: 0;
+    border-radius: 50%;
+    justify-content: center;
+  }
+  .dock-rec .rec-led {
+    width: 16px;
+    height: 16px;
+    opacity: 0.8;
+  }
+  .dock-rec.is-recording {
+    border-color: var(--rec);
+  }
+  .dock-rec.is-recording .rec-led {
+    opacity: 1;
+    box-shadow: 0 0 12px var(--rec);
+  }
+  .dock-play {
+    width: 100%;
+  }
+  .dock-info {
+    grid-column: 1 / -1;
+    order: -1;
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-lcd);
+    font-size: 17px;
+    line-height: 1;
+    color: var(--ink-soft);
+  }
+  .dock-info strong {
+    font-weight: 400;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+  html.is-stage .dock,
+  html.is-exhibit .dock {
+    display: none;
+  }
+  /* the scope and exhibit button crowd a phone header */
+  .brand-tools .scope {
+    display: none;
+  }
+  /* one octave (8 white keys) sized to the screen; octave buttons move it */
+  .keyboard-wrap {
+    container-type: inline-size;
+  }
+  .keyboard {
+    --white: calc(100cqw / 8 + 1px);
+    min-width: 0;
+    height: 160px;
+  }
+}
+
 /* --- small screens -------------------------------------------------------- */
 
 @media (max-width: 560px) {
@@ -1688,7 +1897,8 @@ html.is-exhibit {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
   .jam-hud {
-    grid-template-columns: repeat(4, 44px);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    width: 100%;
   }
   .slot {
     grid-template-columns: minmax(0, 1fr);

@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Chop Shop</title>
     <meta name="description" content="Record one word, chop it up, and get a whole song and light show built around it." />
+    <meta name="theme-color" content="#18181b" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Chop Shop" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icons/icon-180.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=VT323&display=swap" />
@@ -271,6 +279,11 @@
               <button type="button" class="chip-btn" role="radio" aria-checked="false" data-keymode="chords">Live chords</button>
             </div>
             <span class="hint keys-hint">keys A to ; on your computer keyboard</span>
+            <div class="octave" role="group" aria-label="Keyboard octave">
+              <button id="oct-down" type="button" aria-label="Octave down">−</button>
+              <output id="oct-label">C3</output>
+              <button id="oct-up" type="button" aria-label="Octave up">+</button>
+            </div>
             <button id="midi-connect" class="btn btn-small" type="button">Connect MIDI keyboard</button>
           </div>
           <div class="live-bar" id="live-bar" hidden>
@@ -298,6 +311,14 @@
         <span>Everything runs in your browser. Your recording never leaves this page.</span>
       </footer>
     </div>
+
+    <nav class="dock" id="dock" aria-label="Quick controls">
+      <div class="dock-info"><strong id="dock-section">Ready</strong><span id="dock-time">0:00</span></div>
+      <button id="dock-rec" class="btn dock-rec" type="button" aria-label="Record a word"><span class="rec-led" aria-hidden="true"></span></button>
+      <button id="dock-play" class="btn btn-primary dock-play" type="button" aria-pressed="false">Play</button>
+      <button id="dock-new" class="btn" type="button"><span class="dice" aria-hidden="true"></span>New</button>
+      <button id="dock-stage" class="btn" type="button">Stage</button>
+    </nav>
 
     <div class="exhibit" id="exhibit" hidden>
       <div class="exhibit-stage" id="exhibit-stage"></div>

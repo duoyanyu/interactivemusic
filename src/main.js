@@ -72,6 +72,7 @@ const state = {
   stage: false,
   exhibit: false,
   exhibitScreen: 'attract',
+  kbOctave: 0, // octave shift from the buttons
   keyMode: 'word',
   liveType: 'diatonic',
   held: new Map(), // midi -> where it came from ('screen' | 'kbd' | 'midi')
@@ -102,6 +103,10 @@ const el = {
   time: $('#r-time'),
   play: $('#play'),
   topPlay: $('#top-play'),
+  dockPlay: $('#dock-play'),
+  dockRec: $('#dock-rec'),
+  dockSection: $('#dock-section'),
+  dockTime: $('#dock-time'),
   randomize: $('#randomize'),
   newMelody: $('#new-melody'),
   export: $('#export'),
@@ -134,6 +139,58 @@ try {
   visualizer = new Visualizer(el.stageCanvas);
 } catch (err) {
   console.error('Visualizer failed to start', err);
+}
+
+// ---------------------------------------------------------------------------
+// phones and tablets
+
+const isTouch = window.matchMedia('(pointer: coarse)').matches;
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isSmall = () => window.matchMedia('(max-width: 700px)').matches;
+
+// A tap of vibration on Android when you hit a pad (iOS ignores it).
+function buzz() {
+  if (isTouch) navigator.vibrate?.(8);
+}
+
+// iPhones mute Web Audio when the ring/silent switch is on, unless a normal
+// <audio> element is playing. A looping silent clip moves the page into the
+// "playback" audio session so the song is heard either way.
+let silentAudio = null;
+function unlockIOSAudio() {
+  if (!isIOS) return;
+  if (!silentAudio) {
+    const n = 4410;
+    const fake = { numberOfChannels: 1, sampleRate: 44100, length: n, getChannelData: () => new Float32Array(n) };
+    silentAudio = new Audio(URL.createObjectURL(encodeWav(fake)));
+    silentAudio.loop = true;
+    silentAudio.setAttribute('playsinline', '');
+  }
+  silentAudio.play().catch(() => {});
+}
+
+// Phones suspend audio when you switch apps or take a call; pick it back up
+// on the next touch or when the page comes back.
+function resumeAudio() {
+  const ctx = Tone?.getContext();
+  if (ctx && state.engine && ctx.state !== 'running') ctx.resume().catch(() => {});
+}
+
+// Keep the screen on while music plays (and in exhibit mode).
+let wakeLock = null;
+async function updateWakeLock() {
+  const want = (state.engine?.isPlaying || state.exhibit) && document.visibilityState === 'visible';
+  try {
+    if (want && !wakeLock && navigator.wakeLock) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => (wakeLock = null));
+    } else if (!want && wakeLock) {
+      await wakeLock.release();
+      wakeLock = null;
+    }
+  } catch {
+    wakeLock = null; // not allowed here (low battery, iframe); the screen just dims
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -179,7 +236,7 @@ function ensureEngine() {
   }
   state.enginePromise ??= (async () => {
     await Tone.start();
-    const engine = new Engine({ fx: state.fx });
+    const engine = new Engine({ fx: state.fx, lite: isTouch && isSmall() });
     await engine.ready;
     engine.onEvent = onEngineEvent;
     engine.onEnd = onSongEnd;
@@ -203,6 +260,7 @@ function onEngineEvent(type, data) {
   if (type === 'section') {
     state.section = data.id;
     el.section.textContent = data.name;
+    el.dockSection.textContent = data.name;
     updateHud();
   } else if (type === 'vox') {
     flashKey(data.midi, data.dur);
@@ -364,6 +422,8 @@ function setRecording(on) {
   state.recording = on;
   const target = state.recordTarget;
   if (target === 'voice') {
+    el.dockRec.classList.toggle('is-recording', on);
+    el.dockRec.setAttribute('aria-label', on ? 'Stop recording' : 'Record a word');
     el.rec.classList.toggle('is-recording', on);
     el.rec.setAttribute('aria-pressed', String(on));
     el.rec.querySelector('.rec-label').textContent = on ? 'Stop' : 'Rec';
@@ -442,6 +502,7 @@ function flashJam(slice) {
 
 async function playJam(i) {
   if (!state.voice) return;
+  buzz();
   const engine = await ensureEngine();
   engine.jamSlice(i);
   flashJam(i);
@@ -532,6 +593,7 @@ function updateTime(step) {
   const s = state.song;
   if (!s) return;
   el.time.textContent = `${formatTime(step * s.stepSec)} / ${formatTime(s.durationSec)}`;
+  el.dockTime.textContent = el.time.textContent;
 }
 
 function updateHud() {
@@ -576,16 +638,18 @@ function stopPlayback() {
 }
 
 function setPlaying(on) {
-  for (const b of [el.play, el.hudPlay, el.topPlay]) {
+  for (const b of [el.play, el.hudPlay, el.topPlay, el.dockPlay]) {
     b.textContent = on ? 'Stop' : 'Play';
     b.setAttribute('aria-pressed', String(on));
   }
   document.documentElement.classList.toggle('is-playing', on);
   visualizer?.setPlaying(on);
+  updateWakeLock();
   if (on) startLoop();
   else {
     state.section = null;
     el.section.textContent = '–';
+    el.dockSection.textContent = 'Ready';
     updateTime(0);
     drawArrangement();
     updateHud();
@@ -1011,14 +1075,17 @@ function drawSlots() {
 
 function buildKeyboard() {
   const tonic = state.song ? state.song.melodyTonic : 60;
-  const start = 12 * Math.floor((tonic - 3) / 12);
+  const start = Math.max(24, Math.min(84, 12 * Math.floor((tonic - 3) / 12) + 12 * state.kbOctave));
+  const span = isSmall() ? 12 : 24; // one octave fits a phone, two on bigger screens
   const root = state.voice ? Math.round(state.voice.rootMidi) : null;
-  if (start === state.kbStart && el.keyboard.childElementCount && el.keyboard.dataset.root === String(root)) return;
+  const sig = `${start}:${span}:${root}`;
+  if (el.keyboard.dataset.sig === sig && el.keyboard.childElementCount) return;
+  el.keyboard.dataset.sig = sig;
   state.kbStart = start;
-  el.keyboard.dataset.root = String(root);
+  $('#oct-label').textContent = midiToName(start);
   el.keyboard.replaceChildren();
   const BLACK = [1, 3, 6, 8, 10];
-  for (let i = 0; i <= 24; i++) {
+  for (let i = 0; i <= span; i++) {
     const midi = start + i;
     const key = document.createElement('button');
     key.type = 'button';
@@ -1072,6 +1139,7 @@ function setKeyMode(mode) {
 }
 
 async function pressKey(midi, source = 'screen') {
+  if (source === 'screen') buzz();
   if (state.keyMode !== 'chords') {
     playKey(midi);
     return;
@@ -1255,6 +1323,7 @@ function showExhibitScreen(name) {
 function openExhibit() {
   state.exhibit = true;
   syncVisualHud();
+  updateWakeLock();
   stopPlayback();
   setStage(false);
   el.exhibit.hidden = false;
@@ -1269,6 +1338,7 @@ function openExhibit() {
 function closeExhibit() {
   state.exhibit = false;
   syncVisualHud();
+  updateWakeLock();
   clearTimeout(exhibitIdle);
   stopPlayback();
   el.exhibit.hidden = true;
@@ -1350,6 +1420,7 @@ function drawArrangement() {
 }
 
 function redrawAll() {
+  buildKeyboard(); // switches between one and two octaves with the screen
   applyMoodColors();
   drawSampleLcd();
   drawSlots();
@@ -1400,6 +1471,26 @@ el.moodPads.addEventListener('click', (e) => {
 });
 el.play.addEventListener('click', togglePlay);
 el.topPlay.addEventListener('click', togglePlay);
+el.dockPlay.addEventListener('click', togglePlay);
+el.dockRec.addEventListener('click', recordWord);
+$('#dock-stage').addEventListener('click', () => setStage(true));
+$('#oct-down').addEventListener('click', () => {
+  state.kbOctave = Math.max(-2, state.kbOctave - 1);
+  buildKeyboard();
+});
+$('#oct-up').addEventListener('click', () => {
+  state.kbOctave = Math.min(2, state.kbOctave + 1);
+  buildKeyboard();
+});
+// the first touch anywhere unlocks sound on iPhones; later ones revive it after calls
+document.addEventListener('pointerdown', () => {
+  unlockIOSAudio();
+  resumeAudio();
+}, { capture: true });
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') resumeAudio();
+  updateWakeLock();
+});
 el.hudPlay.addEventListener('click', togglePlay);
 const roll = () => {
   el.randomize.classList.remove('is-rolling');
@@ -1409,6 +1500,7 @@ const roll = () => {
 };
 el.randomize.addEventListener('click', roll);
 el.hudRandom.addEventListener('click', roll);
+$('#dock-new').addEventListener('click', roll);
 el.newMelody.addEventListener('click', () => {
   state.recipe.melodySeed = randomSeed();
   rebuild();
@@ -1569,6 +1661,12 @@ visualizer?.setScene(state.scene);
 visualizer?.start();
 if (document.fonts?.ready) document.fonts.ready.then(redrawAll);
 if (location.hash === '#exhibit') openExhibit();
+
+// Installable and offline-capable when served from a real site.
+const servedForReal = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+if ('serviceWorker' in navigator && servedForReal && window.self === window.top) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 
 // handy for poking at things from the console
 window.chopShop = { state, newSong, setRecipe, MOODS };

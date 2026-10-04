@@ -180,9 +180,11 @@ const VOX_LIFT = dbToGain(0); // the chops step forward in the drop
 const SLOT_LEVELS = { kick: 0, snare: -3, hat: -9, perc: -6 };
 
 export class Engine {
-  constructor({ offline = false, fx = DEFAULT_FX } = {}) {
+  // lite: fewer detuned oscillators per voice, for phones
+  constructor({ offline = false, fx = DEFAULT_FX, lite = false } = {}) {
     if (!Tone) throw new Error('Tone.js did not load');
     this.offline = offline;
+    this.lite = lite;
     this.ctx = Tone.getContext();
     this.transport = this.ctx.transport;
     this.draw = offline ? null : Tone.getDraw();
@@ -495,18 +497,21 @@ export class Engine {
   _buildInstruments(style) {
     for (const inst of this.instruments) inst.dispose();
     this.perc?.dispose?.();
+    const lighten = (osc, most) => (this.lite && osc?.count > most ? { ...osc, count: most } : osc);
     const pad = PAD_PATCHES[style.pad] ?? PAD_PATCHES.warm;
     this.pad = new Tone.PolySynth(Tone.Synth, {
-      oscillator: pad.oscillator,
+      oscillator: lighten(pad.oscillator, 2),
       envelope: pad.envelope,
       volume: pad.volume,
     }).connect(this.padFilter);
-    this.pad.maxPolyphony = 24;
+    this.pad.maxPolyphony = this.lite ? 12 : 24;
     this.padChorus.wet.value = pad.chorus;
 
     const pluck = PLUCK_PATCHES[style.pluck] ?? PLUCK_PATCHES.pluck;
-    this.keys = new Tone.PolySynth(Tone[pluck.voice] ?? Tone.Synth, { ...pluck.options, volume: pluck.volume }).connect(this.keysFilter);
-    this.keys.maxPolyphony = 24;
+    const keyOptions = { ...pluck.options, oscillator: lighten(pluck.options.oscillator, 1), volume: pluck.volume };
+    if (!keyOptions.oscillator) delete keyOptions.oscillator;
+    this.keys = new Tone.PolySynth(Tone[pluck.voice] ?? Tone.Synth, keyOptions).connect(this.keysFilter);
+    this.keys.maxPolyphony = this.lite ? 12 : 24;
     this.keysFilter.frequency.value = pluck.cutoff;
 
     const bass = BASS_PATCHES[style.bass] ?? BASS_PATCHES.sub;
