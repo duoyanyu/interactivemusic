@@ -10,6 +10,17 @@ export const SCALES = {
   minor: [0, 2, 3, 5, 7, 8, 10],
   lydian: [0, 2, 4, 6, 7, 9, 11],
   dorian: [0, 2, 3, 5, 7, 9, 10],
+  phrygian: [0, 1, 3, 5, 7, 8, 10],
+  mixolydian: [0, 2, 4, 5, 7, 9, 10],
+};
+
+export const SCALE_LABELS = {
+  major: 'Major',
+  minor: 'Minor',
+  dorian: 'Dorian',
+  phrygian: 'Phrygian',
+  lydian: 'Lydian',
+  mixolydian: 'Mixolydian',
 };
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
@@ -25,7 +36,12 @@ export const mod = (n, m) => ((n % m) + m) % m;
 export const midiToFreq = (m) => 440 * 2 ** ((m - 69) / 12);
 export const freqToMidi = (f) => 69 + 12 * Math.log2(f / 440);
 
+// Phrygian and mixolydian borrow the spelling of their relative major
+// (A phrygian is spelled like F major, so its second chord is Bb, not A#).
+const RELATIVE_MAJOR = { phrygian: 8, mixolydian: 5 };
+
 export function usesFlats(tonicPc, mode) {
+  if (RELATIVE_MAJOR[mode] !== undefined) return FLAT_TONICS.major.includes(mod(tonicPc + RELATIVE_MAJOR[mode], 12));
   const family = mode === 'minor' || mode === 'dorian' ? 'minor' : 'major';
   return FLAT_TONICS[family].includes(mod(tonicPc, 12));
 }
@@ -140,4 +156,98 @@ export function voiceChord(pcs, prev = null, { low = 52, high = 76, center = 62 
     }
   }
   return best;
+}
+
+// --- live chords -------------------------------------------------------------
+
+export const CHORD_TYPES = {
+  diatonic: 'Fit the key',
+  major: 'Major',
+  minor: 'Minor',
+  power: 'Power (root + 5th)',
+  sus2: 'Sus2',
+  seventh: '7th that fits the key',
+};
+
+const SHAPES = {
+  major: { iv: [0, 4, 7], suffix: '' },
+  minor: { iv: [0, 3, 7], suffix: 'm' },
+  dim: { iv: [0, 3, 6], suffix: 'dim' },
+  aug: { iv: [0, 4, 8], suffix: 'aug' },
+  sus2: { iv: [0, 2, 7], suffix: 'sus2' },
+  sus4: { iv: [0, 5, 7], suffix: 'sus4' },
+  power: { iv: [0, 7], suffix: '5' },
+  dom7: { iv: [0, 4, 7, 10], suffix: '7' },
+  maj7: { iv: [0, 4, 7, 11], suffix: 'maj7' },
+  min7: { iv: [0, 3, 7, 10], suffix: 'm7' },
+  m7b5: { iv: [0, 3, 6, 10], suffix: 'm7b5' },
+};
+
+// Scale degree of a pitch class in a key, or -1 if it's outside the scale.
+export function degreeOf(pc, tonicPc, scale) {
+  return scale.indexOf(mod(pc - tonicPc, 12));
+}
+
+/**
+ * The chord to play when someone presses `rootMidi` in a key. "diatonic"
+ * builds the chord the scale gives that note (D in C major is Dm); a note
+ * outside the scale gets a major chord, the usual borrowed-chord sound.
+ * Returns { rootPc, pcs, symbol, degree } (degree is -1 outside the scale).
+ */
+export function chordForRoot(rootMidi, tonicPc, mode, { type = 'diatonic', size = 3 } = {}) {
+  const scale = SCALES[mode] ?? SCALES.minor;
+  const rootPc = mod(Math.round(rootMidi), 12);
+  const degree = degreeOf(rootPc, tonicPc, scale);
+  const flats = usesFlats(tonicPc, mode);
+  const fromShape = (shape) => ({
+    rootPc,
+    pcs: SHAPES[shape].iv.map((i) => mod(rootPc + i, 12)),
+    symbol: pcName(rootPc, flats) + SHAPES[shape].suffix,
+    degree,
+  });
+  if (type === 'major' || type === 'minor' || type === 'power' || type === 'sus2') return fromShape(type);
+  if (degree < 0) return fromShape(type === 'seventh' ? 'dom7' : 'major');
+  const s = type === 'seventh' ? Math.max(4, size) : size;
+  const quality = chordQuality(scale, degree);
+  const n = quality === 'dim' && s > 4 ? 4 : s;
+  return {
+    rootPc,
+    pcs: chordPcs(tonicPc, scale, degree, n),
+    symbol: chordSymbol(tonicPc, scale, degree, n, flats),
+    degree,
+  };
+}
+
+/**
+ * Name the chord in a handful of held notes (from a MIDI keyboard). Tries
+ * every held note as the root against common shapes; the lowest note wins
+ * ties. Returns { rootPc, shape, symbol } or null for fewer than 2 notes.
+ */
+export function recognizeChord(midiNotes, flats = false) {
+  const notes = [...new Set(midiNotes.map((n) => Math.round(n)))].sort((a, b) => a - b);
+  if (notes.length < 2) return null;
+  const pcs = [...new Set(notes.map((n) => mod(n, 12)))];
+  const bassPc = mod(notes[0], 12);
+  let best = null;
+  for (const root of pcs) {
+    const rel = new Set(pcs.map((pc) => mod(pc - root, 12)));
+    for (const [shape, { iv, suffix }] of Object.entries(SHAPES)) {
+      const hit = iv.filter((i) => rel.has(i)).length;
+      if (!rel.has(0) || hit < Math.min(2, iv.length)) continue;
+      const missing = iv.length - hit;
+      const extra = rel.size - hit;
+      const score = hit * 2 - missing * 1.5 - extra * 1.2 + (root === bassPc ? 0.6 : 0) - (shape === 'power' ? 0.3 : 0);
+      if (!best || score > best.score) best = { rootPc: root, shape, symbol: pcName(root, flats) + suffix, score };
+    }
+  }
+  return best && { rootPc: best.rootPc, shape: best.shape, symbol: best.symbol, pcs: SHAPES[best.shape].iv.map((i) => mod(best.rootPc + i, 12)) };
+}
+
+// Pitch class set -> nearest MIDI note to `midi` whose pitch class is in it.
+export function nearestInSet(midi, pcs) {
+  for (let d = 0; d < 12; d++) {
+    if (pcs.includes(mod(midi - d, 12))) return midi - d;
+    if (pcs.includes(mod(midi + d, 12))) return midi + d;
+  }
+  return midi;
 }

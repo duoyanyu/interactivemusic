@@ -22,7 +22,11 @@ for (const mood of MOOD_IDS) {
   test(`${mood}: sections run intro, build, drop, outro back to back`, () => {
     for (const seed of SEEDS) {
       const song = generateSong({ mood, seed, voiceRoot: 60 });
-      assert.deepEqual(song.sections.map((s) => s.id), ['intro', 'build', 'drop', 'outro']);
+      const ids = song.sections.map((s) => s.id);
+      const expected = song.recipe.form === 'double'
+        ? ['intro', 'build', 'drop', 'breakdown', 'build', 'drop', 'outro']
+        : ['intro', 'build', 'drop', 'outro'];
+      assert.deepEqual(ids, expected);
       let step = 0;
       for (const s of song.sections) {
         assert.equal(s.startStep, step);
@@ -33,7 +37,7 @@ for (const mood of MOOD_IDS) {
       assert.equal(song.totalBars * STEPS_PER_BAR, song.totalSteps);
       const range = GROOVES[song.style.groove].bpm;
       assert.ok(song.bpm >= range[0] && song.bpm <= range[1]);
-      assert.ok(song.durationSec > 30 && song.durationSec < 120, `${song.durationSec}s`);
+      assert.ok(song.durationSec > 30 && song.durationSec < 200, `${song.durationSec}s`);
     }
   });
 

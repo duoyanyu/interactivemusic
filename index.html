@@ -4,12 +4,16 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Chop Shop</title>
-    <meta name="description" content="Record one word, turn it into a pitched vocal-chop sampler, and get a whole song built around it." />
+    <meta name="description" content="Record one word, chop it up, and get a whole song and light show built around it." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=VT323&display=swap" />
     <link rel="stylesheet" href="styles.css" />
     <script src="https://cdn.jsdelivr.net/npm/tone@15.1.22/build/Tone.js"></script>
+    <script>
+      // offline or CDN blocked (venues): fall back to the copy in the repo
+      window.Tone || document.write('<script src="vendor/tone-15.1.22.js"><\/script>');
+    </script>
     <script type="module" src="src/main.js"></script>
   </head>
   <body>
@@ -17,9 +21,13 @@
       <header class="brand">
         <div>
           <h1 class="logo">Chop Shop</h1>
-          <p class="model">CS-1 · one word in, one song out</p>
+          <p class="model">CS-2 · one word in, one song out</p>
         </div>
-        <div class="lcd scope" aria-hidden="true"><canvas id="scope"></canvas></div>
+        <div class="brand-tools">
+          <button id="top-play" class="btn btn-primary btn-small" type="button" aria-pressed="false">Play</button>
+          <button id="exhibit-open" class="btn btn-quiet" type="button">Exhibit mode</button>
+          <div class="lcd scope" aria-hidden="true"><canvas id="scope"></canvas></div>
+        </div>
       </header>
 
       <p id="status" class="status" role="status" aria-live="polite"></p>
@@ -38,18 +46,29 @@
               <span class="rec-label">Rec</span>
             </button>
             <div class="lcd lcd-sample">
-              <canvas id="wave" role="img" aria-label="Waveform of the word, with the trimmed silence dimmed"></canvas>
+              <canvas id="wave" role="img" aria-label="Waveform of the word with its slices marked; click a slice to hear it"></canvas>
               <dl class="lcd-stats">
                 <div><dt>Len</dt><dd id="stat-len">–</dd></div>
                 <div><dt>Root</dt><dd id="stat-root">–</dd></div>
                 <div><dt>Hz</dt><dd id="stat-hz">–</dd></div>
+                <div><dt>Slices</dt><dd id="stat-slices">–</dd></div>
               </dl>
             </div>
           </div>
           <p class="hint" id="sample-hint">
-            Hit Rec and say one short word, like “yeah” or “oh”. It stops by itself after 2.5 seconds and trims the silence.
-            Sung or held vowels pitch best.
+            Hit Rec and say one short word or phrase, like “yeah”, “banana” or “let’s go”. It stops by itself after 3 seconds,
+            trims the silence and chops it into slices.
           </p>
+          <div class="row">
+            <span class="row-label" id="slice-label">Chop into</span>
+            <div class="chips" role="radiogroup" aria-labelledby="slice-label" id="slice-modes">
+              <button type="button" class="chip-btn" role="radio" aria-checked="true" data-slices="auto">Auto</button>
+              <button type="button" class="chip-btn" role="radio" aria-checked="false" data-slices="2">2</button>
+              <button type="button" class="chip-btn" role="radio" aria-checked="false" data-slices="4">4</button>
+              <button type="button" class="chip-btn" role="radio" aria-checked="false" data-slices="8">8</button>
+            </div>
+          </div>
+          <div class="jam" id="jam-pads" aria-label="Slice pads: tap to play a slice, keys 1 to 8"></div>
           <div class="row">
             <button id="demo" class="btn btn-quiet" type="button">Use demo voice</button>
             <label class="btn btn-quiet" for="upload">Upload a clip</label>
@@ -62,23 +81,7 @@
             <span class="step" aria-hidden="true">2</span>
             <h2 id="h-mood">Mood</h2>
           </div>
-          <div class="pads" role="radiogroup" aria-labelledby="h-mood">
-            <button class="pad" type="button" role="radio" aria-checked="false" data-mood="sad">
-              <span class="pad-led" aria-hidden="true"></span>
-              <span class="pad-name">Sad</span>
-              <span class="pad-desc">minor · 68–84 bpm · soft drums</span>
-            </button>
-            <button class="pad" type="button" role="radio" aria-checked="true" data-mood="hype">
-              <span class="pad-led" aria-hidden="true"></span>
-              <span class="pad-name">Hype</span>
-              <span class="pad-desc">minor · 122–150 bpm · pumping</span>
-            </button>
-            <button class="pad" type="button" role="radio" aria-checked="false" data-mood="dreamy">
-              <span class="pad-led" aria-hidden="true"></span>
-              <span class="pad-name">Dreamy</span>
-              <span class="pad-desc">major 7ths · 80–102 bpm · swing</span>
-            </button>
-          </div>
+          <div class="pads" role="radiogroup" aria-labelledby="h-mood" id="mood-pads"></div>
         </section>
 
         <section class="module m-song" aria-labelledby="h-song">
@@ -103,16 +106,134 @@
           <div class="transport">
             <button id="play" class="btn btn-primary" type="button" aria-pressed="false">Play</button>
             <button id="randomize" class="btn" type="button"><span class="dice" aria-hidden="true"></span>Randomize</button>
+            <button id="new-melody" class="btn" type="button">New melody</button>
             <button id="export" class="btn" type="button">Export WAV</button>
             <p class="hint transport-hint">Tap a section on the screen to jump there.</p>
           </div>
         </section>
 
-        <section class="module m-fx" aria-labelledby="h-fx">
+        <section class="module m-stage" aria-labelledby="h-stage">
           <div class="module-head">
-            <span class="step" aria-hidden="true">4</span>
-            <h2 id="h-fx">Effects</h2>
+            <h2 id="h-stage">Visuals</h2>
+            <span class="hint">reacts to every kick, chop and chord</span>
           </div>
+          <div class="stage" id="stage">
+            <canvas id="stage-canvas" role="img" aria-label="Music visuals"></canvas>
+            <div class="stage-hud" id="stage-hud">
+              <div class="hud-top">
+                <div class="hud-title">
+                  <span class="hud-word" id="hud-word"></span>
+                  <span class="hud-info" id="hud-info"></span>
+                </div>
+                <button id="stage-exit" class="btn btn-ghost" type="button">Exit stage</button>
+              </div>
+              <div class="hud-bottom">
+                <div class="hud-left">
+                  <button id="hud-play" class="btn btn-primary" type="button">Play</button>
+                  <button id="hud-random" class="btn btn-ghost" type="button">New song</button>
+                  <div class="jam jam-hud" id="hud-jam" aria-label="Slice pads"></div>
+                </div>
+                <div class="xy" id="xy" role="slider" tabindex="0" aria-label="Effects pad: left closes a filter, right thins it out, up throws echoes" aria-valuetext="clean">
+                  <span class="xy-dot" aria-hidden="true"></span>
+                  <span class="xy-label">filter ← → · echo ↑</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="row stage-tools">
+            <div class="chips" role="radiogroup" aria-label="Scene" id="scenes"></div>
+            <label class="field field-inline" for="stage-word">
+              <span>Word on screen</span>
+              <input id="stage-word" type="text" maxlength="24" placeholder="type your word" autocomplete="off" />
+            </label>
+            <label class="toggle" for="orbit">
+              <input id="orbit" type="checkbox" />
+              <span>8D chops <small>(headphones)</small></span>
+            </label>
+            <button id="stage-open" class="btn" type="button">Stage mode</button>
+          </div>
+        </section>
+
+        <section class="module m-studio" aria-labelledby="h-studio">
+          <div class="module-head">
+            <h2 id="h-studio">Studio</h2>
+            <span class="hint">change anything, it keeps playing. Locked groups survive Randomize and mood changes.</span>
+          </div>
+          <div class="studio">
+            <fieldset class="group">
+              <legend>Harmony <label class="lock"><input type="checkbox" data-lock="harmony" /><span>Lock</span></label></legend>
+              <label class="field" for="st-key"><span>Key</span><select id="st-key"></select></label>
+              <label class="field" for="st-scale"><span>Scale</span><select id="st-scale"></select></label>
+              <label class="field field-wide" for="st-chords"><span>Chords</span><select id="st-chords"></select></label>
+              <label class="field" for="st-color"><span>Chord colour</span>
+                <select id="st-color"><option value="3">Triads</option><option value="4">7ths</option><option value="5">9ths</option></select>
+              </label>
+            </fieldset>
+            <fieldset class="group">
+              <legend>Groove <label class="lock"><input type="checkbox" data-lock="groove" /><span>Lock</span></label></legend>
+              <label class="field field-wide" for="st-bpm"><span>Tempo <output id="st-bpm-out"></output></span><input id="st-bpm" type="range" min="60" max="180" /></label>
+              <label class="field" for="st-groove"><span>Beat</span><select id="st-groove"></select></label>
+              <label class="field" for="st-kit"><span>Drum kit</span><select id="st-kit"></select></label>
+              <label class="field" for="st-swing"><span>Swing <output id="st-swing-out"></output></span><input id="st-swing" type="range" min="0" max="35" /></label>
+              <label class="field" for="st-pump"><span>Pump <output id="st-pump-out"></output></span><input id="st-pump" type="range" min="0" max="90" /></label>
+            </fieldset>
+            <fieldset class="group">
+              <legend>Sounds <label class="lock"><input type="checkbox" data-lock="sounds" /><span>Lock</span></label></legend>
+              <label class="field" for="st-pad"><span>Pad</span><select id="st-pad"></select></label>
+              <label class="field" for="st-pluck"><span>Keys sound</span><select id="st-pluck"></select></label>
+              <label class="field" for="st-keys"><span>Keys pattern</span><select id="st-keys"></select></label>
+              <label class="field" for="st-bass"><span>Bass</span><select id="st-bass"></select></label>
+              <label class="field" for="st-texture"><span>Background</span><select id="st-texture"></select></label>
+            </fieldset>
+            <fieldset class="group">
+              <legend>Chops <label class="lock"><input type="checkbox" data-lock="chops" /><span>Lock</span></label></legend>
+              <label class="field" for="st-chop-mode"><span>Use</span><select id="st-chop-mode"></select></label>
+              <label class="field" for="st-pitch"><span>Pitch</span>
+                <select id="st-pitch"><option value="-12">Octave down</option><option value="0">Natural</option><option value="12">Octave up</option></select>
+              </label>
+              <label class="field" for="st-density"><span>Notes</span><select id="st-density"></select></label>
+              <label class="field" for="st-start"><span>Start from</span>
+                <select id="st-start"><option value="start">Start of word</option><option value="vowel">The vowel</option></select>
+              </label>
+              <label class="field field-wide" for="st-gate"><span>Note length <output id="st-gate-out"></output></span><input id="st-gate" type="range" min="25" max="100" /></label>
+              <div class="toggles">
+                <label class="toggle" for="st-stutter"><input id="st-stutter" type="checkbox" /><span>Stutters</span></label>
+                <label class="toggle" for="st-harmony"><input id="st-harmony" type="checkbox" /><span>Harmonies</span></label>
+                <label class="toggle" for="st-octave"><input id="st-octave" type="checkbox" /><span>Octave jumps</span></label>
+              </div>
+            </fieldset>
+            <fieldset class="group">
+              <legend>Structure <label class="lock"><input type="checkbox" data-lock="structure" /><span>Lock</span></label></legend>
+              <label class="field" for="st-intro"><span>Intro</span><select id="st-intro" data-bars="intro"></select></label>
+              <label class="field" for="st-build"><span>Build</span><select id="st-build" data-bars="build"></select></label>
+              <label class="field" for="st-drop"><span>Drop</span><select id="st-drop" data-bars="drop"></select></label>
+              <label class="field" for="st-outro"><span>Outro</span><select id="st-outro" data-bars="outro"></select></label>
+              <label class="field field-wide" for="st-form"><span>Form</span><select id="st-form"></select></label>
+              <label class="field field-wide" for="song-code"><span>Song code</span>
+                <span class="code-row">
+                  <input id="song-code" type="text" spellcheck="false" autocomplete="off" />
+                  <button id="copy-code" class="btn btn-small" type="button">Copy</button>
+                  <button id="load-code" class="btn btn-small" type="button">Load</button>
+                </span>
+              </label>
+            </fieldset>
+          </div>
+        </section>
+
+        <section class="module m-slots" aria-labelledby="h-slots">
+          <div class="module-head">
+            <h2 id="h-slots">Sound slots</h2>
+            <span class="hint">beatbox your own drums, or drop in slices of your word</span>
+          </div>
+          <div class="slots" id="slots"></div>
+        </section>
+
+        <section class="module m-mix" aria-labelledby="h-mix">
+          <div class="module-head">
+            <h2 id="h-mix">Mix &amp; effects</h2>
+            <label class="lock lock-head"><input type="checkbox" data-lock="fx" /><span>Lock effects</span></label>
+          </div>
+          <div class="faders" id="mixer"></div>
           <div class="faders">
             <div class="fader">
               <label for="fx-reverb">Reverb</label>
@@ -135,31 +256,71 @@
               <output for="fx-feedback">40</output>
             </div>
             <div class="fader">
-              <label for="fx-volume">Volume</label>
+              <label for="fx-volume">Master</label>
               <input id="fx-volume" type="range" min="0" max="100" value="80" data-fx="volume" />
               <output for="fx-volume">80</output>
             </div>
           </div>
-          <p class="hint">Delay is synced to the tempo (dotted eighths, ping-pong). Randomize rolls new effect settings too.</p>
         </section>
 
         <section class="module m-keys" aria-labelledby="h-keys">
           <div class="module-head">
-            <h2 id="h-keys">Play your word</h2>
-            <span class="hint keys-hint">or use keys A to ; on your keyboard</span>
+            <h2 id="h-keys">Keys</h2>
+            <div class="chips" role="radiogroup" aria-label="What the keys play" id="key-modes">
+              <button type="button" class="chip-btn" role="radio" aria-checked="true" data-keymode="word">Play your word</button>
+              <button type="button" class="chip-btn" role="radio" aria-checked="false" data-keymode="chords">Live chords</button>
+            </div>
+            <span class="hint keys-hint">keys A to ; on your computer keyboard</span>
+            <button id="midi-connect" class="btn btn-small" type="button">Connect MIDI keyboard</button>
+          </div>
+          <div class="live-bar" id="live-bar" hidden>
+            <div class="lcd live-chord" aria-live="polite">
+              <span class="live-label">Chord</span>
+              <strong id="live-symbol">–</strong>
+              <span id="live-roman"></span>
+            </div>
+            <label class="field" for="live-type"><span>Chord type</span><select id="live-type"></select></label>
+            <label class="toggle" for="live-loop"><input id="live-loop" type="checkbox" checked /><span>Loop the drop</span></label>
           </div>
           <div class="keyboard-wrap">
             <div id="keyboard" class="keyboard"></div>
           </div>
-          <p class="hint">The dotted key is the pitch your word was recorded at. Keys light up when the song uses them.</p>
+          <p class="hint" id="keys-help">The dotted key is the pitch your word was recorded at. Keys light up when the song uses them.</p>
         </section>
       </main>
 
       <footer class="foot">
         <span><kbd>Space</kbd> play / stop</span>
         <span><kbd>R</kbd> record</span>
+        <span><kbd>1</kbd>–<kbd>8</kbd> slice pads</span>
+        <span><kbd>F</kbd> stage mode</span>
+        <span><kbd>C</kbd> live chords</span>
         <span>Everything runs in your browser. Your recording never leaves this page.</span>
       </footer>
+    </div>
+
+    <div class="exhibit" id="exhibit" hidden>
+      <div class="exhibit-stage" id="exhibit-stage"></div>
+      <div class="exhibit-screen" data-screen="attract">
+        <p class="exhibit-kicker">Chop Shop</p>
+        <h2 class="exhibit-title">Say one word.<br />Hear it become a song.</h2>
+        <button class="exhibit-rec" id="ex-rec" type="button"><span class="rec-led" aria-hidden="true"></span><span id="ex-rec-label">Tap and speak</span></button>
+        <p class="exhibit-hint" id="ex-hint">You get 3 seconds. Try your name, a food, or how you feel.</p>
+      </div>
+      <div class="exhibit-screen" data-screen="mood" hidden>
+        <p class="exhibit-kicker">Got it</p>
+        <h2 class="exhibit-title">Pick a vibe</h2>
+        <div class="exhibit-moods" id="ex-moods"></div>
+        <button class="btn btn-ghost" id="ex-retry" type="button">Record again</button>
+      </div>
+      <div class="exhibit-screen exhibit-show" data-screen="show" hidden>
+        <div class="exhibit-show-bar">
+          <span class="hud-info" id="ex-info"></span>
+          <div class="jam jam-hud" id="ex-jam" aria-label="Slice pads"></div>
+          <button class="btn btn-ghost" id="ex-again" type="button">Start over</button>
+        </div>
+      </div>
+      <button class="exhibit-exit" id="exhibit-exit" type="button" aria-label="Leave exhibit mode">Exit</button>
     </div>
   </body>
 </html>

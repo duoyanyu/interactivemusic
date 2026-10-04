@@ -57,19 +57,30 @@ function minMaxColumns(samples, columns) {
 }
 
 // The recorded take, with the kept part lit up and the trimmed silence dim.
-export function drawSample(canvas, colors, { raw, start, end }) {
+// Slice boundaries (relative to the trimmed part) get numbered markers.
+export function drawSample(canvas, colors, { raw, start = 0, end = 0, slices = null, compact = false, label = '' } = {}) {
   const { ctx, width, height } = fitCanvas(canvas);
   ctx.clearRect(0, 0, width, height);
   const mid = height / 2;
   ctx.fillStyle = colors.faint;
   ctx.fillRect(0, mid, width, 1);
-  if (!raw || !raw.length) return;
+  if (!raw || !raw.length) {
+    if (label) {
+      ctx.fillStyle = colors.dim;
+      ctx.font = `${compact ? 14 : 16}px ${colors.font}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, width / 2, mid - 8);
+      ctx.textAlign = 'left';
+    }
+    return;
+  }
 
-  const columns = Math.floor(width);
+  const columns = Math.max(1, Math.floor(width));
   const cols = minMaxColumns(raw, columns);
   let max = 0.0001;
   for (const [lo, hi] of cols) max = Math.max(max, -lo, hi);
-  const scale = (height / 2 - 4) / max;
+  const scale = (height / 2 - (compact ? 2 : 4)) / max;
   const x0 = (start / raw.length) * width;
   const x1 = (end / raw.length) * width;
 
@@ -79,15 +90,29 @@ export function drawSample(canvas, colors, { raw, start, end }) {
     const top = mid - hi * scale;
     ctx.fillRect(x, top, 1, Math.max(1, (hi - lo) * scale));
   });
+  if (compact) return;
 
-  ctx.fillStyle = colors.accent;
-  for (const x of [x0, x1]) ctx.fillRect(Math.round(x), 0, 1, height);
   ctx.font = `13px ${colors.font}`;
   ctx.textBaseline = 'top';
-  ctx.fillText('IN', Math.min(width - 16, x0 + 3), 3);
-  ctx.textAlign = 'right';
-  ctx.fillText('OUT', Math.max(20, x1 - 3), 3);
-  ctx.textAlign = 'left';
+  ctx.fillStyle = colors.accent;
+  for (const x of [x0, x1]) ctx.fillRect(Math.round(x), 0, 1, height);
+  if (slices && slices.length > 1) {
+    slices.forEach((s, i) => {
+      const sx = ((start + s.start) / raw.length) * width;
+      const ex = ((start + s.end) / raw.length) * width;
+      if (i > 0) {
+        ctx.globalAlpha = 0.75;
+        for (let y = 0; y < height; y += 6) ctx.fillRect(Math.round(sx), y, 1, 3);
+        ctx.globalAlpha = 1;
+      }
+      if (ex - sx > 12) ctx.fillText(String(i + 1), sx + 4, 3);
+    });
+  } else {
+    ctx.fillText('IN', Math.min(width - 16, x0 + 3), 3);
+    ctx.textAlign = 'right';
+    ctx.fillText('OUT', Math.max(20, x1 - 3), 3);
+    ctx.textAlign = 'left';
+  }
 }
 
 // Live mic input while recording, with a time bar along the bottom.
@@ -273,7 +298,7 @@ export class ArrangementView {
     for (const s of song.sections) {
       const x0 = this.stepToX(s.startStep);
       const x1 = this.stepToX(s.endStep);
-      const active = s.id === currentSectionId;
+      const active = position > 0 ? position >= s.startStep && position < s.endStep : s.id === currentSectionId;
       ctx.fillStyle = active ? colors.accent : colors.faint;
       ctx.fillRect(x0 + 1, 2, x1 - x0 - 2, this.stripH - 4);
       ctx.fillStyle = active ? colors.bg : colors.ink;

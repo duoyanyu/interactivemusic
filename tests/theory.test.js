@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   SCALES,
+  chordForRoot,
   chordPcs,
   chordSymbol,
   degreeToMidi,
@@ -10,7 +11,10 @@ import {
   midiToFreq,
   midiToName,
   mod,
+  nearestInSet,
+  recognizeChord,
   romanNumeral,
+  usesFlats,
   voiceChord,
 } from '../src/theory.js';
 
@@ -56,6 +60,9 @@ test('key names pick sharps or flats', () => {
   assert.equal(keyName(1, 'minor'), 'C# minor');
   assert.equal(keyName(10, 'major'), 'Bb major');
   assert.equal(keyName(6, 'lydian'), 'F# lydian');
+  assert.equal(chordSymbol(9, SCALES.phrygian, 1, 3, usesFlats(9, 'phrygian')), 'Bb');
+  assert.equal(chordSymbol(0, SCALES.mixolydian, 6, 3, usesFlats(0, 'mixolydian')), 'Bb');
+  assert.equal(chordSymbol(4, SCALES.phrygian, 1, 3, usesFlats(4, 'phrygian')), 'F');
 });
 
 test('voicings stay in range and keep every chord tone', () => {
@@ -72,4 +79,37 @@ test('voicings stay in range and keep every chord tone', () => {
     }
     prev = v;
   }
+});
+
+
+test('live chords fit the key', () => {
+  // C major: D -> Dm, G -> G, B -> Bdim, F# (outside) -> F# major
+  assert.equal(chordForRoot(62, 0, 'major').symbol, 'Dm');
+  assert.equal(chordForRoot(67, 0, 'major').symbol, 'G');
+  assert.equal(chordForRoot(55, 0, 'major', { size: 4 }).symbol, 'G7');
+  assert.equal(chordForRoot(71, 0, 'major').symbol, 'Bdim');
+  assert.equal(chordForRoot(66, 0, 'major').symbol, 'F#');
+  assert.equal(chordForRoot(66, 0, 'major').degree, -1);
+  // A minor: C -> C major, E -> Em
+  assert.deepEqual(chordForRoot(60, 9, 'minor').pcs, [0, 4, 7]);
+  assert.equal(chordForRoot(64, 9, 'minor').symbol, 'Em');
+  assert.equal(chordForRoot(64, 9, 'minor', { type: 'major' }).symbol, 'E');
+  assert.equal(chordForRoot(64, 9, 'minor', { type: 'power' }).symbol, 'E5');
+  assert.equal(chordForRoot(65, 9, 'minor', { type: 'seventh' }).symbol, 'Fmaj7');
+});
+
+test('recognizeChord names held notes', () => {
+  assert.equal(recognizeChord([60, 64, 67]).symbol, 'C');
+  assert.equal(recognizeChord([57, 60, 64]).symbol, 'Am');
+  assert.equal(recognizeChord([64, 67, 72]).symbol, 'C'); // first inversion
+  assert.equal(recognizeChord([55, 59, 62, 65]).symbol, 'G7');
+  assert.equal(recognizeChord([62, 65, 69, 72]).symbol, 'Dm7');
+  assert.equal(recognizeChord([60, 67]).symbol, 'C5');
+  assert.equal(recognizeChord([60]), null);
+});
+
+test('nearestInSet snaps to chord tones', () => {
+  assert.equal(nearestInSet(61, [0, 4, 7]), 60);
+  assert.equal(nearestInSet(66, [0, 4, 7]), 67);
+  assert.equal(nearestInSet(64, [0, 4, 7]), 64);
 });
