@@ -158,6 +158,7 @@ input,
   border-radius: 24px;
   padding: clamp(14px, 3vw, 28px);
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--gap);
 }
 
@@ -260,6 +261,7 @@ input,
   border-radius: var(--radius);
   padding: 16px;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   align-content: start;
   min-width: 0;
@@ -334,19 +336,33 @@ input,
   overflow: hidden;
 }
 
-.lcd canvas {
+/* Canvases are absolutely placed inside a box whose size never depends on
+   them. Left in normal flow, Safari sizes a canvas from its own pixel
+   buffer (CSS size x device pixel ratio), so it grows on every redraw.
+   Every box that holds one (.lcd, .canvas-box, .stage) has a set height. */
+.lcd canvas,
+.canvas-box canvas {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
   height: 100%;
 }
 
-/* Every canvas gets a fixed CSS height (or sits in a box with one). If its
-   height were left to the content, the pixel buffer (CSS size x device
-   pixel ratio) would become its size, and it would grow on every redraw. */
-
-.scope canvas {
-  height: 52px;
+.canvas-box {
+  position: relative;
+  min-width: 0;
 }
+
+.wave-box {
+  height: 110px;
+}
+
+.arrange-box {
+  height: 200px;
+}
+
+
 
 /* --- sample module -------------------------------------------------------- */
 
@@ -425,13 +441,12 @@ input,
 
 .lcd-sample {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto auto;
   align-content: start;
 }
 
-.lcd-sample canvas {
-  height: 110px;
-}
+
 
 .lcd-stats {
   display: flex;
@@ -640,6 +655,7 @@ input,
 
 .lcd-song {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .readouts {
@@ -701,7 +717,6 @@ input,
 }
 
 #arrange {
-  height: 200px;
   cursor: pointer;
 }
 
@@ -720,6 +735,7 @@ input,
 
 .faders {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
 
@@ -1334,6 +1350,7 @@ html.is-exhibit {
 
 .slots {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
 }
 
@@ -1884,7 +1901,7 @@ html.is-exhibit {
   .readouts dd {
     font-size: 22px;
   }
-  #arrange {
+  .arrange-box {
     height: 170px;
   }
   .fader {

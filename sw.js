@@ -2,7 +2,7 @@
 // from the network whenever it's reachable (network first, cache fallback),
 // so updates show up straight away and a venue with flaky wifi still works.
 
-const CACHE = 'chop-shop-v2';
+const CACHE = 'chop-shop-v3';
 const FILES = [
   './',
   'index.html',

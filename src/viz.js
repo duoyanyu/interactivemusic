@@ -2,7 +2,13 @@
 
 export function fitCanvas(canvas) {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
-  const { width, height } = canvas.getBoundingClientRect();
+  let { width, height } = canvas.getBoundingClientRect();
+  // Never trust a size that may have come from the pixel buffer itself
+  // (Safari can do that); a canvas is never wider than its container.
+  const box = canvas.parentElement?.clientWidth;
+  if (box && width > box) width = box;
+  width = Math.min(width, 4096);
+  height = Math.min(height, 2048);
   const w = Math.max(1, Math.round(width * dpr));
   const h = Math.max(1, Math.round(height * dpr));
   if (canvas.width !== w || canvas.height !== h) {

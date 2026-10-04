@@ -54,7 +54,9 @@
               <span class="rec-label">Rec</span>
             </button>
             <div class="lcd lcd-sample">
-              <canvas id="wave" role="img" aria-label="Waveform of the word with its slices marked; click a slice to hear it"></canvas>
+              <div class="canvas-box wave-box">
+                <canvas id="wave" role="img" aria-label="Waveform of the word with its slices marked; click a slice to hear it"></canvas>
+              </div>
               <dl class="lcd-stats">
                 <div><dt>Len</dt><dd id="stat-len">–</dd></div>
                 <div><dt>Root</dt><dd id="stat-root">–</dd></div>
@@ -109,7 +111,9 @@
               <div><dt>Now</dt><dd id="r-section">–</dd></div>
               <div><dt>Time</dt><dd id="r-time">0:00</dd></div>
             </dl>
-            <canvas id="arrange" role="img" aria-label="Song arrangement: intro, build, drop and outro, with vocal chops, keys, bass and drums"></canvas>
+            <div class="canvas-box arrange-box">
+              <canvas id="arrange" role="img" aria-label="Song arrangement: intro, build, drop and outro, with vocal chops, keys, bass and drums"></canvas>
+            </div>
           </div>
           <div class="transport">
             <button id="play" class="btn btn-primary" type="button" aria-pressed="false">Play</button>
