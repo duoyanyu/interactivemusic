@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en" data-mood="hype">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Chop Shop</title>
+    <meta name="description" content="Record one word, turn it into a pitched vocal-chop sampler, and get a whole song built around it." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=VT323&display=swap" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/tone@15.1.22/build/Tone.js"></script>
+    <script type="module" src="src/main.js"></script>
+  </head>
+  <body>
+    <div class="deck">
+      <header class="brand">
+        <div>
+          <h1 class="logo">Chop Shop</h1>
+          <p class="model">CS-1 · one word in, one song out</p>
+        </div>
+        <div class="lcd scope" aria-hidden="true"><canvas id="scope"></canvas></div>
+      </header>
+
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+
+      <main class="modules">
+        <section class="module m-sample" aria-labelledby="h-sample">
+          <div class="module-head">
+            <span class="step" aria-hidden="true">1</span>
+            <h2 id="h-sample">Your word</h2>
+            <span class="chip" id="source-chip">Demo voice</span>
+          </div>
+          <div class="sample-row">
+            <button id="rec" class="rec" type="button" aria-pressed="false" aria-label="Record a word">
+              <span class="rec-ring" aria-hidden="true"></span>
+              <span class="rec-led" aria-hidden="true"></span>
+              <span class="rec-label">Rec</span>
+            </button>
+            <div class="lcd lcd-sample">
+              <canvas id="wave" role="img" aria-label="Waveform of the word, with the trimmed silence dimmed"></canvas>
+              <dl class="lcd-stats">
+                <div><dt>Len</dt><dd id="stat-len">–</dd></div>
+                <div><dt>Root</dt><dd id="stat-root">–</dd></div>
+                <div><dt>Hz</dt><dd id="stat-hz">–</dd></div>
+              </dl>
+            </div>
+          </div>
+          <p class="hint" id="sample-hint">
+            Hit Rec and say one short word, like “yeah” or “oh”. It stops by itself after 2.5 seconds and trims the silence.
+            Sung or held vowels pitch best.
+          </p>
+          <div class="row">
+            <button id="demo" class="btn btn-quiet" type="button">Use demo voice</button>
+            <label class="btn btn-quiet" for="upload">Upload a clip</label>
+            <input id="upload" class="visually-hidden" type="file" accept="audio/*" />
+          </div>
+        </section>
+
+        <section class="module m-mood" aria-labelledby="h-mood">
+          <div class="module-head">
+            <span class="step" aria-hidden="true">2</span>
+            <h2 id="h-mood">Mood</h2>
+          </div>
+          <div class="pads" role="radiogroup" aria-labelledby="h-mood">
+            <button class="pad" type="button" role="radio" aria-checked="false" data-mood="sad">
+              <span class="pad-led" aria-hidden="true"></span>
+              <span class="pad-name">Sad</span>
+              <span class="pad-desc">minor · 68–84 bpm · soft drums</span>
+            </button>
+            <button class="pad" type="button" role="radio" aria-checked="true" data-mood="hype">
+              <span class="pad-led" aria-hidden="true"></span>
+              <span class="pad-name">Hype</span>
+              <span class="pad-desc">minor · 122–150 bpm · pumping</span>
+            </button>
+            <button class="pad" type="button" role="radio" aria-checked="false" data-mood="dreamy">
+              <span class="pad-led" aria-hidden="true"></span>
+              <span class="pad-name">Dreamy</span>
+              <span class="pad-desc">major 7ths · 80–102 bpm · swing</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="module m-song" aria-labelledby="h-song">
+          <div class="module-head">
+            <span class="step" aria-hidden="true">3</span>
+            <h2 id="h-song">Song</h2>
+          </div>
+          <div class="lcd lcd-song">
+            <dl class="readouts">
+              <div><dt>Key</dt><dd id="r-key">–</dd></div>
+              <div><dt>BPM</dt><dd id="r-bpm">–</dd></div>
+              <div class="readout-chords">
+                <dt>Chords</dt>
+                <dd><span id="r-chords">–</span> <span class="roman" id="r-roman"></span></dd>
+              </div>
+              <div><dt>Groove</dt><dd id="r-groove">–</dd></div>
+              <div><dt>Now</dt><dd id="r-section">–</dd></div>
+              <div><dt>Time</dt><dd id="r-time">0:00</dd></div>
+            </dl>
+            <canvas id="arrange" role="img" aria-label="Song arrangement: intro, build, drop and outro, with vocal chops, keys, bass and drums"></canvas>
+          </div>
+          <div class="transport">
+            <button id="play" class="btn btn-primary" type="button" aria-pressed="false">Play</button>
+            <button id="randomize" class="btn" type="button"><span class="dice" aria-hidden="true"></span>Randomize</button>
+            <button id="export" class="btn" type="button">Export WAV</button>
+            <p class="hint transport-hint">Tap a section on the screen to jump there.</p>
+          </div>
+        </section>
+
+        <section class="module m-fx" aria-labelledby="h-fx">
+          <div class="module-head">
+            <span class="step" aria-hidden="true">4</span>
+            <h2 id="h-fx">Effects</h2>
+          </div>
+          <div class="faders">
+            <div class="fader">
+              <label for="fx-reverb">Reverb</label>
+              <input id="fx-reverb" type="range" min="0" max="100" value="50" data-fx="reverb" />
+              <output for="fx-reverb">50</output>
+            </div>
+            <div class="fader">
+              <label for="fx-size">Room size</label>
+              <input id="fx-size" type="range" min="0" max="100" value="60" data-fx="size" />
+              <output for="fx-size">60</output>
+            </div>
+            <div class="fader">
+              <label for="fx-delay">Delay</label>
+              <input id="fx-delay" type="range" min="0" max="100" value="40" data-fx="delay" />
+              <output for="fx-delay">40</output>
+            </div>
+            <div class="fader">
+              <label for="fx-feedback">Echoes</label>
+              <input id="fx-feedback" type="range" min="0" max="100" value="40" data-fx="feedback" />
+              <output for="fx-feedback">40</output>
+            </div>
+            <div class="fader">
+              <label for="fx-volume">Volume</label>
+              <input id="fx-volume" type="range" min="0" max="100" value="80" data-fx="volume" />
+              <output for="fx-volume">80</output>
+            </div>
+          </div>
+          <p class="hint">Delay is synced to the tempo (dotted eighths, ping-pong). Randomize rolls new effect settings too.</p>
+        </section>
+
+        <section class="module m-keys" aria-labelledby="h-keys">
+          <div class="module-head">
+            <h2 id="h-keys">Play your word</h2>
+            <span class="hint keys-hint">or use keys A to ; on your keyboard</span>
+          </div>
+          <div class="keyboard-wrap">
+            <div id="keyboard" class="keyboard"></div>
+          </div>
+          <p class="hint">The dotted key is the pitch your word was recorded at. Keys light up when the song uses them.</p>
+        </section>
+      </main>
+
+      <footer class="foot">
+        <span><kbd>Space</kbd> play / stop</span>
+        <span><kbd>R</kbd> record</span>
+        <span>Everything runs in your browser. Your recording never leaves this page.</span>
+      </footer>
+    </div>
+  </body>
+</html>

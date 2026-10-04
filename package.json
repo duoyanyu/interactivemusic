@@ -1,0 +1,12 @@
+{
+  "name": "chop-shop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Record a word, turn it into a pitched vocal-chop sampler, and auto-generate a song around it with Tone.js.",
+  "type": "module",
+  "scripts": {
+    "start": "npx --yes serve -l 5173 .",
+    "test": "node --test"
+  },
+  "license": "MIT"
+}
